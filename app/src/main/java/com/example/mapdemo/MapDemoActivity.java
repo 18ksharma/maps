@@ -7,10 +7,12 @@ import android.content.DialogInterface;
 import android.location.Location;
 import android.os.Bundle;
 import android.os.Looper;
+import android.os.SystemClock;
 import android.text.TextUtils;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
+import android.view.animation.BounceInterpolator;
 import android.widget.EditText;
 import android.widget.Toast;
 
@@ -39,6 +41,11 @@ import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
 import com.google.android.gms.tasks.OnFailureListener;
 import com.google.android.gms.tasks.OnSuccessListener;
+import com.example.mapdemo.CustomWindowAdapter;
+
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
 
 import permissions.dispatcher.NeedsPermission;
 import permissions.dispatcher.RuntimePermissions;
@@ -46,7 +53,7 @@ import permissions.dispatcher.RuntimePermissions;
 import static com.google.android.gms.location.LocationServices.getFusedLocationProviderClient;
 
 @RuntimePermissions
-public class MapDemoActivity extends AppCompatActivity {
+public class MapDemoActivity extends AppCompatActivity implements GoogleMap.OnMarkerDragListener{
 
     private SupportMapFragment mapFragment;
     private GoogleMap map;
@@ -84,8 +91,10 @@ public class MapDemoActivity extends AppCompatActivity {
                 @Override
                 public void onMapReady(GoogleMap map) {
                     loadMap(map);
+                    map.setInfoWindowAdapter(new CustomWindowAdapter(getLayoutInflater()));
                 }
             });
+
         } else {
             Toast.makeText(this, "Error - Map Fragment was null!!", Toast.LENGTH_SHORT).show();
         }
@@ -109,6 +118,29 @@ public class MapDemoActivity extends AppCompatActivity {
             Toast.makeText(this, "Map Fragment was loaded properly!", Toast.LENGTH_SHORT).show();
             MapDemoActivityPermissionsDispatcher.getMyLocationWithPermissionCheck(this);
             MapDemoActivityPermissionsDispatcher.startLocationUpdatesWithPermissionCheck(this);
+
+            map.setOnMarkerDragListener(new GoogleMap.OnMarkerDragListener() {
+                @Override
+                public void onMarkerDragStart(Marker marker) {
+                    marker.setDraggable(true);
+                }
+
+                @Override
+                public void onMarkerDrag(Marker marker) {
+
+                    marker.setDraggable(true);
+                    LatLng position = marker.getPosition();
+                    marker.setPosition(position);
+                }
+
+                @Override
+                public void onMarkerDragEnd(Marker marker) {
+
+                    marker.setDraggable(true);
+                    LatLng position = marker.getPosition();
+                    marker.setPosition(position);
+                }
+            });
         } else {
             Toast.makeText(this, "Error - Map was null!!", Toast.LENGTH_SHORT).show();
         }
@@ -140,12 +172,17 @@ public class MapDemoActivity extends AppCompatActivity {
                                 getText().toString();
                         String snippet = ((EditText) alertDialog.findViewById(R.id.etSnippet)).
                                 getText().toString();
+                        //findDistance();
+
                         // Creates and adds marker to the map
                         Marker marker = map.addMarker(new MarkerOptions()
                                 .position(point)
                                 .title(title)
                                 .snippet(snippet)
                                 .icon(defaultMarker));
+                        dropPinEffect(marker);
+                        marker.setDraggable(true);
+                        onMarkerDrag(marker);
                     }
                 });
 
@@ -157,6 +194,58 @@ public class MapDemoActivity extends AppCompatActivity {
 
         // Display the dialog
         alertDialog.show();
+    }
+
+    /*private void findDistance() {
+        AsyncHttpClie client = new AsyncHttpClient();
+        client.get(NOW_PLAYING_URL, new JsonHttpResponseHandler() {
+            @Override
+            public void onSuccess(int statusCode, Headers headers, JSON json) {
+                Log.d("MapDemo", "onSuccess");
+                JSONObject jsonObject = json.jsonObject;
+                try{
+                    JSONArray results = jsonObject.getJSONArray("results");
+                    Log.i("MapDemo", "Results: "+results.toString());
+                    movies.addAll(Movie.fromJsonArray(results));
+                    movieAdapter.notifyDataSetChanged();
+                    Log.i("MapDemo", "Movies: "+movies.size());
+                }
+                catch(JSONException e){
+                    Log.e("MapDemo", "Hit json exception", e);
+                }
+            }
+    }*/
+
+    private void dropPinEffect(final Marker marker) {
+        // Handler allows us to repeat a code block after a specified delay
+        final android.os.Handler handler = new android.os.Handler();
+        final long start = SystemClock.uptimeMillis();
+        final long duration = 1500;
+
+        // Use the bounce interpolator
+        final android.view.animation.Interpolator interpolator =
+                new BounceInterpolator();
+
+        // Animate marker with a bounce updating its position every 15ms
+        handler.post(new Runnable() {
+            @Override
+            public void run() {
+                long elapsed = SystemClock.uptimeMillis() - start;
+                // Calculate t for bounce based on elapsed time
+                float t = Math.max(
+                        1 - interpolator.getInterpolation((float) elapsed
+                                / duration), 0);
+                // Set the anchor
+                marker.setAnchor(0.5f, 1.0f + 14 * t);
+
+                if (t > 0.0) {
+                    // Post this event again 15ms from now.
+                    handler.postDelayed(this, 15);
+                } else { // done elapsing, show window
+                    marker.showInfoWindow();
+                }
+            }
+        });
     }
 
     @Override
@@ -289,6 +378,21 @@ public class MapDemoActivity extends AppCompatActivity {
     public void onSaveInstanceState(Bundle savedInstanceState) {
         savedInstanceState.putParcelable(KEY_LOCATION, mCurrentLocation);
         super.onSaveInstanceState(savedInstanceState);
+    }
+
+    @Override
+    public void onMarkerDragStart(Marker marker) {
+
+    }
+
+    @Override
+    public void onMarkerDrag(Marker marker) {
+
+    }
+
+    @Override
+    public void onMarkerDragEnd(Marker marker) {
+
     }
 
     // Define a DialogFragment that displays the error dialog
